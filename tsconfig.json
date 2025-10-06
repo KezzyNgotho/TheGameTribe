@@ -21,6 +21,6 @@
     "incremental": true
   },
   "include": ["additional.d.ts", "next-env.d.ts", "**/*.ts", "**/*.tsx", "src/constants/mocks/storiesMock.ts"],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "web3-contracts/**"],
   "moduleResolution": ["node_modules", ".next", "node"]
 }

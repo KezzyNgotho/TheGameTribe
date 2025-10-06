@@ -1,4 +1,4 @@
-# Dunk Verse
+# GameTribe
 
 ## Features 🚀
 
@@ -12,9 +12,8 @@
 - Fans can win NFTs and other rewards by participating in these interactive quizzes.
 
 ### 3. **Unified Token Economy**
-- Transactions are powered by **$FTO (DunkVerse Token)**, which is equivalent to:
-  - 1 $MNT
-- Simplifies transactions on each chain and promotes ecosystem interoperability.
+- Transactions are powered by **$GTB (GameTribe Token)** on Push Chain Donut Testnet.
+- Simplifies transactions across features and promotes ecosystem interoperability.
 
 ### 4. **Decentralized Betting Pool**
 - Fair and transparent NFT auctions ensure trust among bidders.
@@ -25,29 +24,29 @@
 - Real-time leaderboard displays top-performing players in live quizzes.
 - View the average market value of NFTs on the platform.
 
-## Deployed and Verified Contracts
+## Deployed Contracts (Push Chain Donut Testnet - chainId 42101)
 
-| Contract Name        | Description                                   | Mantle Testnet Deployed and Verified Contract Links                               |
-|----------------------|-----------------------------------------------|-----------------------------------------------------------------------------------|
-| `DunkVerse.sol`      | ERC-20 token contract for $FTO.               | https://sepolia.mantlescan.xyz/address/0xaF1968db67Dd7161D2AF04917b03240DE638ec15 |
-| `BettingPool.sol`    | Handles GameFi betting logic.                 | https://sepolia.mantlescan.xyz/address/0xaD488Cd332034434240828F987d6E6B991D48125 |
-| `AIGeneratedNFT.sol` | Manages NFT generation, supply, and transfers.| https://sepolia.mantlescan.xyz/address/0xEa8860639d003c9B746B94d077D6dD5052e7cF5d |
-| `InviteFriends.sol`  | Manages on-chain invitation and rewards.      | https://sepolia.mantlescan.xyz/address/0xfA224De740979215a51162d27C0Db1621A4712A9 |
+| Contract Name        | Description                                   | Address | Explorer |
+|----------------------|-----------------------------------------------|---------|----------|
+| `DunkVerse.sol`      | ERC-20 token contract for $GTB.               | `0xA2B74d35e1352f77cafCaB676f39424fD8e3D690` | https://donut.push.network/address/0xA2B74d35e1352f77cafCaB676f39424fD8e3D690 |
+| `BettingPool.sol`    | Handles GameFi betting logic.                 | `0xA67264D67Ea9fa84c820004E32d45B93c9C0CE65` | https://donut.push.network/address/0xA67264D67Ea9fa84c820004E32d45B93c9C0CE65 |
+| `AIGeneratedNFT.sol` | Manages NFT generation, supply, and transfers.| `0x5C6d74D06aE7695f63A75529D2E271f08d0a28E6` | https://donut.push.network/address/0x5C6d74D06aE7695f63A75529D2E271f08d0a28E6 |
+| `InviteFriends.sol`  | Manages on-chain invitation and rewards.      | `0x214B59e60Dd6DaF6E648fE1A9C32b005f01BC9E4` | https://donut.push.network/address/0x214B59e60Dd6DaF6E648fE1A9C32b005f01BC9E4 |
 
 ## Key Technologies
 
-- **Blockchain**: Mantle Layer 2, Ethereum
+- **Blockchain**: Push Chain Donut Testnet (EVM L1)
 - **AI**: DALL-E3 GPT OpenAI Models for real-time quiz generation
 - **Oracles**: Third-party oracles API for live Top Shots NBA match data
 - **Smart Contracts**: Solidity
 - **Frontend**: React.js, TypeScript, TailwindCSS
 - **Storage**: Pinata
 - **Wallet Integration**: RainbowKit, Wagmi, Metamask APIs
-- **Tokenomics**: ERC-20, ERC-721 standard for $FTO token and NFTs
+- **Tokenomics**: ERC-20, ERC-721 standards for $GTB token and NFTs
 
-## Tokenomics on Mantle 📊
+## Tokenomics 📊
 
-- **Symbol**: $FTO (DunkVerse Token)
+- **Symbol**: $GTB (GameTribe Token)
 - **Supply**: 10 billion tokens
 - **Utility**:
   - Place bids in NFT auctions.
@@ -58,11 +57,11 @@
 
 1. **User Onboarding**:
    - Connect Wallet via MetaMask.
-   - Receive $FTO tokens if you have a metamask-to-metamask invitation.
+   - Receive $GTB tokens if you have a metamask-to-metamask invitation.
 
 2. **Participation**:
    - Join AI-generated quizzes.
-   - Bet on outcomes using $FTO.
+   - Bet on outcomes using $GTB.
 
 3. **Rewards**:
    - Win AI-generated NFTs and leaderboard points.
@@ -72,31 +71,32 @@
    - Invite friends and earn rewards.
    - Compete on the leaderboard.
 
-## Steps
+## Getting Started (Local)
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/AmaanSayyad/DunkVerse.git
+   git clone https://github.com/KezzyNgotho/TheGameTribe.git
+   cd TheGameTribe
    ```
 2. Install dependencies:
    ```bash
-   cd DunkVerse
-   yarn install
+   npm install
    ```
 3. Start the frontend:
    ```bash
-   yarn run dev
+   npm run dev
    ```
 4. Access the application at `http://localhost:3000`.
 
+Environment variables (optional):
+- `NEXT_PUBLIC_APP_NAME=GameTribe`
+
 ## **Future Enhancements**
-- Enable more complex betting logic, build 16 new features and launch v2 in the telegram mini-app.
-- Integrate $FTO token with Apple Pay & card payments via Stripe/ 3rd party services.
-- Bring partnerships with NBA teams, NBA TopShots, Chiliz and 20+ New Protocol Integration.
-- Scale to global sports events beyond NBA.
-- Expanding the AI-generated quiz system to cover multiple sports and leagues.
-- Enhanced UI/UX for seamless user onboarding.
+- Expand betting logic and Universal App features on Push Chain.
+- Onramp integrations for GTB via card providers.
+- Partnerships and additional league coverage beyond NBA.
+- Enhanced onboarding and mobile UX.
 
 ## Connect. Play. Win.
 
-DunkVerse on Mantle Blockchain combines the love for sports and blockchain innovation, creating a vibrant ecosystem for fans and collectors. Join us today and experience the future of fan engagement!
+GameTribe on Push Chain blends sports fandom with on-chain innovation. Join and experience the future of multichain fan engagement!
