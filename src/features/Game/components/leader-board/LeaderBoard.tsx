@@ -51,7 +51,7 @@ const LeaderBoard = () => {
           <div className='flex items-center justify-between p-2'>
             {isConnected && (
               <NextImage
-                src='/images/demo-profile.png'
+                src='/images/icons8-car-100.png'
                 alt='Image placeholder'
                 className='relative h-14 w-14 rounded-full border-2 border-primary-500'
                 imgClassName='object-cover rounded-full'

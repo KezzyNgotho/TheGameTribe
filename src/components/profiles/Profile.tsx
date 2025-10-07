@@ -88,7 +88,7 @@ const Profile = () => {
         <div style={{ paddingTop: 'calc(2px + env(safe-area-inset-top))' }}>
           <div className='absolute mt-6 flex flex-col items-center gap-3 mobile-demo:inset-center'>
             <NextImage
-              src='/images/demo-profile.png'
+              src='/images/icons8-car-100.png'
               alt='Image placeholder'
               className='relative h-32 w-32 rounded-full border-4 border-primary-500'
               imgClassName='object-cover rounded-full'
@@ -101,7 +101,7 @@ const Profile = () => {
       ) : (
         <div className='flex flex-grow flex-col items-center gap-3 overflow-y-auto px-4'>
           <NextImage
-            src='/images/demo-profile.png'
+            src='/images/icons8-car-100.png'
             alt='Image placeholder'
             className='relative h-32 w-32 rounded-full border-4 border-primary-500'
             imgClassName='object-cover rounded-full'

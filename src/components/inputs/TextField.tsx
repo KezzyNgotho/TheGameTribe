@@ -40,6 +40,8 @@ const TextField = ({
       <input
         type='text'
         id='main-search'
+        aria-label={placeHolder || 'Search'}
+        title={placeHolder || 'Search'}
         className={clsxm(
           startAdornment ? '!pl-12' : '',
           'w-full rounded-lg border border-gray-300 bg-gray-50 p-3.5 text-sm text-gray-900',
