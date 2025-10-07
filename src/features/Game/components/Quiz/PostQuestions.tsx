@@ -35,20 +35,39 @@ const PostQuestions = () => {
     if (!signer) return;
     setLoading(true);
     try {
-      const { nftContract: nftContractAddress } = getChainConfig(42101)!; // Push Donut NFT address
+      const { nftContract: nftContractAddress, mainContract } = getChainConfig(42101)!; // NFT + Pool
       const nftContractInstance = new ethers.Contract(nftContractAddress, nftContractABI, signer);
 
-      const nftId = preQuestions.NFTFlowId; // Assuming NFTFlowId is the nftId
+      const nftIdRaw = preQuestions.NFTFlowId; // UI-provided id
+      // Coerce to a proper uint256-compatible value
+      const nftId = ethers.BigNumber.from(nftIdRaw).toString();
       if (!nftId) {
         throw new Error('NFTFlowId is not defined');
       }
 
-      const tx = await nftContractInstance['safeTransferFrom(address,address,uint256)'](
-        '0x8Cd99CEA8e595FdDbE7859Ff00A1c255f84621d4', // Replace with the actual address holding the NFT
-        await signer.getAddress(),
-        nftId,
-        { gasLimit: 1000000 } // Set a manual gas limit
-      );
+      // Minimal ABI for pool register + claim in one tx
+      const poolAbi = [
+        'function createUser() external returns (uint256)',
+        'function getUserDetails(address) view returns (uint256 owedValue, uint256 uuid)',
+        'function claimRewardAndMint(string name) external returns (uint256)',
+        'event RewardClaimed(address indexed user, uint256 nftId)'
+      ];
+      const pool = new ethers.Contract(mainContract, poolAbi, signer);
+
+      // Ensure user is registered (ignore if already exists)
+      try {
+        const [, uuid] = await pool.getUserDetails(await signer.getAddress());
+        if (ethers.BigNumber.from(uuid).eq(0)) {
+          const regTx = await pool.createUser();
+          await regTx.wait();
+        }
+      } catch {
+        // Fallback try create
+        try { const regTx = await pool.createUser(); await regTx.wait(); } catch {}
+      }
+
+      // Single tx: mint reward to pool and transfer to caller
+      const tx = await pool.claimRewardAndMint('GameTribe-Reward', { gasLimit: 500000 });
       await tx.wait();
 
       alert('Reward claimed successfully!');
