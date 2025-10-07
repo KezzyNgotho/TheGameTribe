@@ -6,6 +6,12 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import '@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
 
+interface IAIGeneratedNFT {
+    function mint(address to, string memory name) external;
+    function ownerOf(uint256 tokenId) external view returns (address);
+    function nextTokenId() external view returns (uint256);
+}
+
 contract BettingPool is ERC721Holder {
     using SafeERC20 for IERC20;
 
@@ -20,6 +26,7 @@ contract BettingPool is ERC721Holder {
 
     IERC20 public flowToken;
     IERC721 public nftContract;
+    IAIGeneratedNFT public aiNft;
     uint256 public accruedFees;
     address public commissionsAddress;
     uint256 public commission = 5;
@@ -48,6 +55,7 @@ contract BettingPool is ERC721Holder {
     constructor(address _flowToken, address _nftContract, address _commissionsAddress) {
         flowToken = IERC20(_flowToken);
         nftContract = IERC721(_nftContract);
+        aiNft = IAIGeneratedNFT(_nftContract);
         commissionsAddress = _commissionsAddress;
     }
 
@@ -157,6 +165,23 @@ contract BettingPool is ERC721Holder {
 
         nftContract.safeTransferFrom(address(this), msg.sender, nftId);
         emit RewardClaimed(msg.sender, nftId);
+    }
+
+    // Mint and immediately transfer to caller (basic guard: must be a registered user)
+    function claimRewardAndMint(string calldata name) external returns (uint256 tokenId) {
+        require(users[msg.sender].uuid != 0, "User not registered");
+        aiNft.mint(address(this), name);
+        tokenId = aiNft.nextTokenId() - 1;
+        nftContract.safeTransferFrom(address(this), msg.sender, tokenId);
+        emit RewardClaimed(msg.sender, tokenId);
+    }
+
+    // Admin mint: allow commissionsAddress to mint reward NFTs to the pool itself
+    function mintRewardToPool(string calldata name) external returns (uint256 tokenId) {
+        require(msg.sender == commissionsAddress, "Not authorized");
+        aiNft.mint(address(this), name);
+        // nextTokenId increments after mint; last minted is nextTokenId-1
+        tokenId = aiNft.nextTokenId() - 1;
     }
 
     function getUserDetails(address userAddress) external view returns (uint256 owedValue, uint256 uuid) {
