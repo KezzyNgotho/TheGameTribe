@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAccount } from 'wagmi';
 
-import Menu from '@/components/menu/Menu';
 import NextImage from '@/components/NextImage';
 
 const Profile = () => {
@@ -154,7 +153,7 @@ const Profile = () => {
           )}
         </div>
       )}
-      {createPortal(<Menu />, document.body)}
+      {/* Bottom menu is rendered at Game root; avoid duplicate here */}
     </div>
   );
 };

@@ -11,7 +11,7 @@ const Tabs = ({ className, children }: Props) => {
   return (
     <Tab.List
       className={clsx(
-        'grid grid-cols-2 items-center justify-center gap-1 rounded-full bg-white p-3 capitalize text-black mobile-m:gap-4 mobile-demo:gap-8',
+        'grid grid-cols-2 items-center justify-center gap-1 rounded-full bg-white/95 p-2 capitalize text-black shadow-sm backdrop-blur mobile-m:gap-3 mobile-demo:gap-6',
         className
       )}
     >

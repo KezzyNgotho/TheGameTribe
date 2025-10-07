@@ -35,6 +35,11 @@ const Game = () => {
   } = useQuizContext();
   const [showInviteFriends, setShowInviteFriends] = useState(false); // Track invite modal
   const { selectedTab } = useTabsContext();
+  // Ensure tab switches always work by closing overlays when user changes tabs
+  React.useEffect(() => {
+    setActiveQuiz(false);
+    setShowInviteFriends(false);
+  }, [selectedTab, setActiveQuiz]);
 
   const handleTrendingQuizClick = (quizIdentifier: string) => {
     setActiveQuiz(true);
@@ -139,7 +144,6 @@ me
 
         {/* Modal for Invite Friends */}
         {showInviteFriends && <InviteFriends setOpen={setShowInviteFriends} />}
-
         {createPortal(<Menu />, document.body)}
       </>
     );
@@ -156,7 +160,12 @@ me
     return null;
   };
 
-  return <TabGroup>{renderGame()}</TabGroup>;
+  return (
+    <>
+      <TabGroup>{renderGame()}</TabGroup>
+      {selectedTab !== 'leader-board' && createPortal(<Menu />, document.body)}
+    </>
+  );
 };
 
 export default Game;

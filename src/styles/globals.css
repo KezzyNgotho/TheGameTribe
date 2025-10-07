@@ -44,27 +44,27 @@
 
   /* #region  /**=========== Typography =========== */
   .h0 {
-    @apply font-primary text-3xl font-bold;
+    @apply font-primary text-2xl font-bold;
   }
 
   h1,
   .h1 {
-    @apply font-primary text-3xl font-bold;
+    @apply font-primary text-2xl font-bold;
   }
 
   h2,
   .h2 {
-    @apply font-primary text-xl font-bold;
+    @apply font-primary text-lg font-bold;
   }
 
   h3,
   .h3 {
-    @apply font-primary text-lg font-bold;
+    @apply font-primary text-base font-bold;
   }
 
   h4,
   .h4 {
-    @apply font-primary text-base font-bold;
+    @apply font-primary text-sm font-bold;
   }
 
   body,
@@ -74,8 +74,8 @@
   /* #endregion  /**======== Typography =========== */
 
   .layout {
-    /* 1100px */
-    max-width: 68.75rem;
+    /* 1024px */
+    max-width: 64rem;
     @apply mx-auto w-11/12;
   }
 

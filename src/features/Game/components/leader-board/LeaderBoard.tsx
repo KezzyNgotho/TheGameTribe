@@ -1,7 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { CiMedal } from 'react-icons/ci';
 import { IoDiamondOutline } from 'react-icons/io5';
 import { RiVipCrownLine } from 'react-icons/ri';
@@ -9,7 +8,6 @@ import { useAccount } from 'wagmi';
 
 import Account from '@/components/account/Account';
 import TextField from '@/components/inputs/TextField';
-import Menu from '@/components/menu/Menu';
 import NextImage from '@/components/NextImage';
 import StoryBar from '@/components/story/StoryBar';
 import Tab from '@/components/tabs/Tab';
@@ -208,7 +206,7 @@ const LeaderBoard = () => {
             </TabPanel>
           </TabPanels>
         </TabGroup>
-        {createPortal(<Menu />, document.body)}
+        {/* Bottom menu is rendered at Game root; avoid duplicate here */}
       </div>
     );
   };

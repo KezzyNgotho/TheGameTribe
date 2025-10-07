@@ -34,6 +34,9 @@ export default function NextImage({
     useSkeleton ? 'loading' : 'complete'
   );
   const widthIsSet = className?.includes('w-') ?? false;
+  // Strip non-DOM prop to avoid React warning
+  const { fetchPriority, ...cleanRest } = (rest as Record<string, unknown>) || {};
+  const priority = fetchPriority === 'high' ? true : undefined;
 
   return (
     <figure
@@ -50,7 +53,8 @@ export default function NextImage({
         height={height}
         alt={alt}
         onLoadingComplete={() => setStatus('complete')}
-        {...rest}
+        priority={priority}
+        {...cleanRest}
       />
     </figure>
   );

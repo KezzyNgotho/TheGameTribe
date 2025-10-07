@@ -11,7 +11,6 @@ import { AiOutlineSetting } from 'react-icons/ai';
 import { ethers } from 'ethers';
 import { useAccount } from 'wagmi';
 
-import Menu from '@/components/menu/Menu';
 import MoneyBag from '@/components/SVGs/MoneyBag';
 import Tab from '@/components/tabs/Tab';
 import TabGroup from '@/components/tabs/TabGroup';
@@ -192,7 +191,7 @@ const Payment = () => {
           </div>
         </div>
       )}
-      {createPortal(<Menu />, document.body)}
+      {/* Bottom menu is rendered at Game root; avoid duplicate here */}
       {Capacitor.getPlatform() == 'ios' ? (
         <div className='text-gradient-primary mt-6 flex items-center justify-center gap-2'>
           <h2 className='!h1'>$12,58</h2>

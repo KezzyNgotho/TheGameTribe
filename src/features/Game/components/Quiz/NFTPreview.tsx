@@ -52,13 +52,13 @@ const NFTPreview = ({ setShowNFTPreview }: Props) => {
           'pt-[calc(2px+env(safe-area-inset-top))]',
       ])}
     >
-      <div className='absolute left-2/4 top-0 h-full max-h-screen w-full -translate-x-2/4 overflow-hidden mobile-demo:max-h-[844px] mobile-demo:w-[500px]'>
+      <div className='absolute left-2/4 top-0 h-full max-h-screen w-full -translate-x-2/4 overflow-hidden mobile-demo:max-h-[820px] mobile-demo:w-[460px]'>
         <video
           webkit-playsinline='true'
           playsInline
           ref={videoRef}
           onClick={() => setShowInfo(true)}
-          className='h-full w-full scale-110 object-cover'
+          className='h-full w-full scale-[1.04] object-cover rounded-xl'
           src={NFTMedia(preQuestions.NFTFlowId, 'video-tall')}
           autoPlay
           loop
@@ -72,7 +72,7 @@ const NFTPreview = ({ setShowNFTPreview }: Props) => {
         />
       </div>
       <PercentageBar percentage={(currentTime / duration) * 100} />
-      <div className='z-40 mt-6 flex w-full items-center justify-between'>
+      <div className='z-40 mt-4 flex w-full items-center justify-between'>
         <div className='z-40 flex w-full items-center gap-2'>
           <div className='rounded-full bg-gradient-primary'>
             <NextImage

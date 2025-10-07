@@ -10,13 +10,13 @@ const Menu = () => {
   const { setSelectedTab, selectedTab } = useTabsContext();
 
   return (
-    <div className='sticky bottom-5 z-[999] mx-auto flex w-[85vw] items-center justify-around rounded-full border-2 border-primary-500 bg-white p-4 mobile-demo:w-[450px]'>
+    <div className='sticky bottom-4 z-[999] mx-auto flex w-[85vw] items-center justify-around rounded-full border border-primary-500/50 bg-white/95 p-3 shadow-lg backdrop-blur mobile-demo:w-[450px]'>
       {menuItems.map((item) => {
         return (
           <span
             onClick={() => setSelectedTab(item.name)}
             className={clsxm([
-              'aspect-square text-2xl text-black',
+              'aspect-square text-xl text-black transition-colors',
               selectedTab === item.name && 'text-primary-500',
             ])}
             key={item.name}

@@ -55,21 +55,21 @@ const NFTThumbnail = ({ NFTFlowId, showPrice, className, ...rest }: Props) => {
       <div
         {...rest}
         className={clsxm([
-          'relative w-full rounded-3xl border-2 border-primary-500 p-3 pb-[75px]',
+          'relative w-full rounded-2xl border border-primary-500 p-2 pb-[60px]',
           className,
         ])}
       >
         <div className='absolute -bottom-1 left-2/4 h-2 w-8/12 -translate-x-2/4 bg-dark'></div>
-        <div className='absolute -bottom-0 left-2/4 h-16 w-[calc(66.66666%+4px)] -translate-x-2/4 rounded-t-3xl border-2 border-b-0  border-primary-500'></div>
+        <div className='absolute -bottom-0 left-2/4 h-12 w-[calc(66.66666%+2px)] -translate-x-2/4 rounded-t-2xl border border-b-0  border-primary-500'></div>
         <div className='flex w-full flex-col items-center self-start'>
           <span className='h2'>{NFTInfo?.NFTName ?? 'loading...'}</span>
-          <p className='text-center text-[10px]'>
+          <p className='text-center text-[9px] opacity-90'>
             {NFTInfo?.NFTDescription ?? 'loading...'}
           </p>
           <video
             webkit-playsinline='true'
             playsInline
-            className='mt-2 h-full w-full'
+            className='mt-1 h-full w-full rounded-lg'
             src={NFTInfo?.NFTVideoSrc}
             autoPlay
             loop
