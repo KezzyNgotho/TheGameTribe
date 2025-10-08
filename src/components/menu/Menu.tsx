@@ -25,7 +25,7 @@ const Menu = () => {
           >
             <span className='relative inline-block'>
               {item.icon}
-              {item.name === 'home' && pendingCount > 0 && (
+              {item.name === 'rewards' && pendingCount > 0 && (
                 <span className='absolute -right-2 -top-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-primary-500 px-1 text-[10px] text-white'>
                   {pendingCount}
                 </span>
