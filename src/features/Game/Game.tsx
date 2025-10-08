@@ -10,6 +10,7 @@ import TabPanel from '@/components/tabs/TabPanel';
 
 import LeaderBoard from '@/features/Game/components/leader-board/LeaderBoard';
 import Payment from '@/features/Game/components/payment/Payment';
+import Rewards from '@/features/Game/components/Rewards/Rewards';
 import InviteFriends from '@/features/Game/components/Quiz/InviteFriends';
 import PlayersInfiniteScroll from '@/features/Game/components/Quiz/PlayersInfiniteScroll';
 import Quiz from '@/features/Game/components/Quiz/Quiz';
@@ -155,6 +156,7 @@ me
       return <InviteFriends setOpen={setShowInviteFriends} />;
     if (selectedTab === 'home') return <LeaderBoard />;
     if (selectedTab === 'leader-board') return home();
+    if (selectedTab === 'rewards') return <Rewards />;
     if (selectedTab === 'payment') return <Payment />;
     if (selectedTab === 'profile') return <Profile />;
     return null;

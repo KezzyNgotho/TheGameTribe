@@ -1,6 +1,6 @@
 import React, { ReactNode, useContext, useState } from 'react';
 
-type Tabs = 'home' | 'leader-board' | 'payment' | 'profile';
+type Tabs = 'home' | 'leader-board' | 'rewards' | 'payment' | 'profile';
 
 type TabsContext = {
   selectedTab: Tabs;
