@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
 
 import Button from '@/components/buttons/Button';
@@ -6,28 +6,120 @@ import { useEthersSigner } from '@/utils/signer';
 import { getChainConfig } from '@/config/contracts';
 import { useRewardsContext } from '@/features/Game/contexts/RewardsContext';
 
+type RewardEvent = {
+  type: 'Queued' | 'Claimed';
+  tokenId?: string;
+  txHash: string;
+  blockNumber: number;
+  timestamp?: number;
+};
+
+const EXPLORER = 'https://donut.push.network';
+const CACHE_KEY = (addr: string) => `gtb-reward-history-${addr}-42101`;
+
 const Rewards = () => {
   const signer = useEthersSigner();
   const { pendingCount, setPendingCount } = useRewardsContext();
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [history, setHistory] = useState<RewardEvent[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!signer) return;
-      try {
-        const { mainContract } = getChainConfig(42101)!;
-        const abi = [
-          'function getPendingClaims(address) view returns (uint256)'
-        ];
-        const pool = new ethers.Contract(mainContract, abi, signer);
-        const current = await pool.getPendingClaims(await signer.getAddress());
-        setPendingCount(Number(ethers.BigNumber.from(current).toString()));
-      } catch {}
-    };
-    load();
+  const userAddress = useMemo(() => undefined, []);
+
+  const loadPending = useCallback(async () => {
+    if (!signer) return;
+    try {
+      const { mainContract } = getChainConfig(42101)!;
+      const abi = ['function getPendingClaims(address) view returns (uint256)'];
+      const pool = new ethers.Contract(mainContract, abi, signer);
+      const current = await pool.getPendingClaims(await signer.getAddress());
+      setPendingCount(Number(ethers.BigNumber.from(current).toString()));
+    } catch {}
   }, [signer, setPendingCount]);
 
-  const claim = async () => {
+  const loadHistory = useCallback(async () => {
+    if (!signer) return;
+    setLoadingHistory(true);
+    try {
+      const provider = signer.provider as ethers.providers.Provider;
+      const { mainContract } = getChainConfig(42101)!;
+
+      // Try cache first
+      try {
+        const cacheRaw = localStorage.getItem(CACHE_KEY((await signer.getAddress()).toLowerCase()));
+        if (cacheRaw) {
+          const cached = JSON.parse(cacheRaw) as RewardEvent[];
+          setHistory(cached);
+        }
+      } catch {}
+
+      const filterUser = (await signer.getAddress()).toLowerCase();
+
+      // Minimal iface for events
+      const iface = new ethers.utils.Interface([
+        'event RewardClaimed(address indexed user, uint256 nftId)',
+        'event PendingRewardQueued(address indexed user, uint256 pendingCount)'
+      ]);
+
+      // Define a recent window if full history is heavy
+      const latest = await provider.getBlockNumber();
+      const fromBlock = Math.max(0, latest - 120000); // ~recent window
+
+      const claimedLogs = await provider.getLogs({
+        address: mainContract,
+        fromBlock,
+        toBlock: 'latest',
+        topics: [iface.getEventTopic('RewardClaimed')]
+      });
+      const queuedLogs = await provider.getLogs({
+        address: mainContract,
+        fromBlock,
+        toBlock: 'latest',
+        topics: [iface.getEventTopic('PendingRewardQueued')]
+      });
+
+      const events: RewardEvent[] = [];
+      for (const log of claimedLogs) {
+        const parsed = iface.parseLog(log);
+        const user = (parsed.args.user as string).toLowerCase();
+        if (user !== filterUser) continue;
+        const tokenId = (parsed.args.nftId as ethers.BigNumber).toString();
+        events.push({ type: 'Claimed', tokenId, txHash: log.transactionHash, blockNumber: log.blockNumber });
+      }
+      for (const log of queuedLogs) {
+        const parsed = iface.parseLog(log);
+        const user = (parsed.args.user as string).toLowerCase();
+        if (user !== filterUser) continue;
+        events.push({ type: 'Queued', txHash: log.transactionHash, blockNumber: log.blockNumber });
+      }
+
+      // Enrich with timestamps
+      const blocksToFetch = Array.from(new Set(events.map(e => e.blockNumber)));
+      const blockMap = new Map<number, number>();
+      await Promise.all(blocksToFetch.map(async (bn) => {
+        const b = await provider.getBlock(bn);
+        blockMap.set(bn, (b?.timestamp ?? 0) * 1000);
+      }));
+      const enriched = events
+        .map(e => ({ ...e, timestamp: blockMap.get(e.blockNumber) }))
+        .sort((a, b) => (b.blockNumber - a.blockNumber));
+
+      setHistory(enriched);
+      setLastUpdated(Date.now());
+      try { localStorage.setItem(CACHE_KEY(filterUser), JSON.stringify(enriched)); } catch {}
+    } catch {}
+    setLoadingHistory(false);
+  }, [signer]);
+
+  useEffect(() => {
+    (async () => {
+      await loadPending();
+      await loadHistory();
+    })();
+  }, [loadPending, loadHistory]);
+
+  const claimOne = async () => {
     if (!signer) return;
     setLoading(true);
     try {
@@ -41,8 +133,8 @@ const Rewards = () => {
       if (ethers.BigNumber.from(pending).eq(0)) throw new Error('No pending reward to claim');
       const tx = await pool.claimRewardAndMint('GameTribe-Reward', { gasLimit: 500000 });
       await tx.wait();
-      const after = await pool.getPendingClaims(await signer.getAddress());
-      setPendingCount(Number(ethers.BigNumber.from(after).toString()));
+      await loadPending();
+      await loadHistory();
       alert('Reward claimed successfully!');
     } catch (e: any) {
       alert(e?.message || 'Failed to claim reward');
@@ -51,21 +143,99 @@ const Rewards = () => {
     }
   };
 
+  const claimAll = async () => {
+    if (!signer) return;
+    setLoading(true);
+    try {
+      const { mainContract } = getChainConfig(42101)!;
+      const abi = [
+        'function getPendingClaims(address) view returns (uint256)',
+        'function claimRewardAndMint(string name) external returns (uint256)'
+      ];
+      const pool = new ethers.Contract(mainContract, abi, signer);
+      let pending = await pool.getPendingClaims(await signer.getAddress());
+      let remaining = ethers.BigNumber.from(pending).toNumber();
+      if (remaining === 0) throw new Error('No pending rewards to claim');
+      while (remaining > 0) {
+        const tx = await pool.claimRewardAndMint('GameTribe-Reward', { gasLimit: 500000 });
+        await tx.wait();
+        remaining -= 1;
+      }
+      await loadPending();
+      await loadHistory();
+      alert('All rewards claimed!');
+    } catch (e: any) {
+      alert(e?.message || 'Failed to claim all');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fmt = (ms?: number) => (ms ? new Date(ms).toLocaleString() : '');
+  const txLink = (hash: string) => `${EXPLORER}/tx/${hash}`;
+
   return (
     <div className='mx-auto max-w-[95vw] space-y-6 mobile-demo:w-[450px]'>
-      <h2 className='text-lg font-bold text-primary-500'>Rewards</h2>
-      <div className='rounded-lg border border-gray-200 p-4'>
-        <div className='mb-2 text-sm text-gray-600'>Pending rewards</div>
-        <div className='text-2xl font-semibold'>{pendingCount}</div>
+      <div className='flex items-center justify-between'>
+        <h2 className='text-lg font-bold text-primary-500'>Rewards</h2>
+        <button
+          className='text-sm text-primary-500 underline'
+          onClick={() => { loadPending(); loadHistory(); }}
+          aria-label='Refresh rewards'
+        >
+          Refresh
+        </button>
       </div>
-      <Button
-        onClick={claim}
-        variant='outline'
-        className='py-5'
-        disabled={loading || pendingCount === 0}
-      >
-        {loading ? 'Claiming...' : (pendingCount === 0 ? 'No Reward Available' : 'Claim Reward')}
-      </Button>
+
+      <div className='rounded-lg border border-gray-200 p-4'>
+        <div className='mb-1 flex items-center justify-between'>
+          <div className='text-sm text-gray-600'>Pending rewards</div>
+          {lastUpdated && (
+            <div className='text-xs text-gray-400'>Updated {fmt(lastUpdated)}</div>
+          )}
+        </div>
+        <div className='mb-4 text-2xl font-semibold'>{pendingCount}</div>
+        <div className='flex gap-3'>
+          <Button onClick={claimOne} variant='outline' className='py-3' disabled={loading || pendingCount === 0}>
+            {loading ? 'Working...' : 'Claim One'}
+          </Button>
+          <Button onClick={claimAll} variant='outline' className='py-3' disabled={loading || pendingCount === 0}>
+            {loading ? 'Working...' : 'Claim All'}
+          </Button>
+        </div>
+      </div>
+
+      <div className='space-y-3'>
+        <div className='text-sm font-semibold text-gray-700'>History</div>
+        {loadingHistory ? (
+          <div className='text-sm text-gray-500'>Loading history…</div>
+        ) : history.length === 0 ? (
+          <div className='rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500'>
+            No history yet. Play a quiz to earn rewards.
+          </div>
+        ) : (
+          <ul className='space-y-2'>
+            {history.map((ev, idx) => (
+              <li key={idx} className='flex items-center justify-between rounded-lg border border-gray-200 p-3'>
+                <div className='flex min-w-0 items-center gap-3'>
+                  <span className={
+                    ev.type === 'Claimed' ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700' : 'rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700'
+                  }>
+                    {ev.type}
+                  </span>
+                  <div className='min-w-0'>
+                    <div className='truncate text-sm'>
+                      {ev.type === 'Claimed' ? `Token #${ev.tokenId}` : 'Queued reward'}
+                    </div>
+                    <div className='text-xs text-gray-500'>{fmt(ev.timestamp)}</div>
+                  </div>
+                </div>
+                <a className='shrink-0 text-xs text-primary-500 underline' href={txLink(ev.txHash)} target='_blank' rel='noreferrer'>View</a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };
