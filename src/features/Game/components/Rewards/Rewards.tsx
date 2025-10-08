@@ -310,6 +310,8 @@ const Rewards = () => {
     return Array.from(byDay.entries()).sort((a,b) => (a[0] < b[0] ? 1 : -1));
   }, [history, filter]);
 
+  const lastClaimed = useMemo(() => history.find((e) => e.type === 'Claimed'), [history]);
+
   return (
     <div className='mx-auto max-w-[95vw] space-y-6 mobile-demo:w-[450px]'>
       {!networkOk && (
@@ -327,6 +329,19 @@ const Rewards = () => {
           Refresh
         </button>
       </div>
+
+      {lastClaimed && (
+        <div className='flex items-center gap-3 rounded-xl border border-gray-200 p-3 shadow-sm'>
+          {lastClaimed.image && (
+            <img src={lastClaimed.image} alt='Last claimed NFT' className='h-12 w-12 shrink-0 rounded-lg object-cover' />
+          )}
+          <div className='min-w-0'>
+            <div className='truncate text-sm font-medium'>Last claimed {lastClaimed.tokenId ? `#${lastClaimed.tokenId}` : ''}</div>
+            <div className='text-xs text-gray-500'>{fmt(lastClaimed.timestamp)}</div>
+          </div>
+          <a className='ml-auto shrink-0 text-xs text-primary-500 underline' href={txLink(lastClaimed.txHash)} target='_blank' rel='noreferrer'>View</a>
+        </div>
+      )}
 
       <div className='rounded-lg border border-gray-200 p-4'>
         <div className='mb-1 flex items-center justify-between'>
