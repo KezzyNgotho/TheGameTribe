@@ -132,7 +132,18 @@ const Rewards = () => {
       const pending = await pool.getPendingClaims(await signer.getAddress());
       if (ethers.BigNumber.from(pending).eq(0)) throw new Error('No pending reward to claim');
       const tx = await pool.claimRewardAndMint('GameTribe-Reward', { gasLimit: 500000 });
-      await tx.wait();
+      const rc = await tx.wait();
+      // Optimistically add claimed entry; tokenId is not directly known here without parsing logs
+      setHistory(prev => [
+        {
+          type: 'Claimed',
+          tokenId: undefined,
+          txHash: tx.hash,
+          blockNumber: rc?.blockNumber ?? 0,
+          timestamp: Date.now()
+        },
+        ...prev,
+      ]);
       await loadPending();
       await loadHistory();
       alert('Reward claimed successfully!');
@@ -158,7 +169,17 @@ const Rewards = () => {
       if (remaining === 0) throw new Error('No pending rewards to claim');
       while (remaining > 0) {
         const tx = await pool.claimRewardAndMint('GameTribe-Reward', { gasLimit: 500000 });
-        await tx.wait();
+        const rc = await tx.wait();
+        setHistory(prev => [
+          {
+            type: 'Claimed',
+            tokenId: undefined,
+            txHash: tx.hash,
+            blockNumber: rc?.blockNumber ?? 0,
+            timestamp: Date.now()
+          },
+          ...prev,
+        ]);
         remaining -= 1;
       }
       await loadPending();
@@ -173,6 +194,19 @@ const Rewards = () => {
 
   const fmt = (ms?: number) => (ms ? new Date(ms).toLocaleString() : '');
   const txLink = (hash: string) => `${EXPLORER}/tx/${hash}`;
+
+  // Group history by calendar day for headers
+  const grouped = useMemo(() => {
+    const byDay = new Map<string, RewardEvent[]>();
+    for (const ev of history) {
+      const d = ev.timestamp ? new Date(ev.timestamp) : new Date();
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const arr = byDay.get(key) ?? [];
+      arr.push(ev);
+      byDay.set(key, arr);
+    }
+    return Array.from(byDay.entries()).sort((a,b) => (a[0] < b[0] ? 1 : -1));
+  }, [history]);
 
   return (
     <div className='mx-auto max-w-[95vw] space-y-6 mobile-demo:w-[450px]'>
@@ -214,26 +248,33 @@ const Rewards = () => {
             No history yet. Play a quiz to earn rewards.
           </div>
         ) : (
-          <ul className='space-y-2'>
-            {history.map((ev, idx) => (
-              <li key={idx} className='flex items-center justify-between rounded-lg border border-gray-200 p-3'>
-                <div className='flex min-w-0 items-center gap-3'>
-                  <span className={
-                    ev.type === 'Claimed' ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700' : 'rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700'
-                  }>
-                    {ev.type}
-                  </span>
-                  <div className='min-w-0'>
-                    <div className='truncate text-sm'>
-                      {ev.type === 'Claimed' ? `Token #${ev.tokenId}` : 'Queued reward'}
-                    </div>
-                    <div className='text-xs text-gray-500'>{fmt(ev.timestamp)}</div>
-                  </div>
-                </div>
-                <a className='shrink-0 text-xs text-primary-500 underline' href={txLink(ev.txHash)} target='_blank' rel='noreferrer'>View</a>
-              </li>
+          <div className='space-y-4'>
+            {grouped.map(([day, items]) => (
+              <div key={day} className='space-y-2'>
+                <div className='text-xs font-semibold uppercase text-gray-500'>{day}</div>
+                <ul className='space-y-2'>
+                  {items.map((ev, idx) => (
+                    <li key={`${day}-${idx}`} className='flex items-center justify-between rounded-lg border border-gray-200 p-3'>
+                      <div className='flex min-w-0 items-center gap-3'>
+                        <span className={
+                          ev.type === 'Claimed' ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700' : 'rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700'
+                        }>
+                          {ev.type}
+                        </span>
+                        <div className='min-w-0'>
+                          <div className='truncate text-sm'>
+                            {ev.type === 'Claimed' ? `Token #${ev.tokenId ?? '—'}` : 'Queued reward'}
+                          </div>
+                          <div className='text-xs text-gray-500'>{fmt(ev.timestamp)}</div>
+                        </div>
+                      </div>
+                      <a className='shrink-0 text-xs text-primary-500 underline' href={txLink(ev.txHash)} target='_blank' rel='noreferrer'>View</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>
