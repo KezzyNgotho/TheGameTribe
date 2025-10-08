@@ -6,6 +6,7 @@ import '@/styles/globals.css';
 import '@rainbow-me/rainbowkit/styles.css';
 
 import Layout from '@/components/layout/Layout';
+import RewardsContextProvider from '@/features/Game/contexts/RewardsContext';
 
 import { chains, wagmiConfig } from '@/utils/wallet-utils';
 
@@ -37,7 +38,9 @@ function MyApp({ Component, pageProps }: AppProps) {
       <Layout>
         <WagmiConfig config={wagmiConfig}>
           <RainbowKitProvider chains={chains}>
-            <Component {...pageProps} />
+            <RewardsContextProvider>
+              <Component {...pageProps} />
+            </RewardsContextProvider>
           </RainbowKitProvider>
         </WagmiConfig>
       </Layout>

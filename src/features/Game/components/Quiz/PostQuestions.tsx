@@ -14,6 +14,7 @@ import { useQuizContext } from '@/features/Game/contexts/QuizContext';
 import { useEthersSigner } from '@/utils/signer';
 import { nftContractABI } from '@/contract-constant';
 import { getChainConfig } from '@/config/contracts';
+import { useRewardsContext } from '@/features/Game/contexts/RewardsContext';
 
 const PostQuestions = () => {
   const { preQuestions, reset } = useQuizContext();
@@ -22,6 +23,7 @@ const PostQuestions = () => {
   const [loading, setLoading] = useState(false);
   const [pendingCount, setPendingCount] = useState<ethers.BigNumber | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const { setPendingCount: setGlobalPending } = useRewardsContext();
 
   useEffect(() => {
     // Generate random points between 0 and 4999
@@ -61,8 +63,18 @@ const PostQuestions = () => {
           await qtx.wait();
           const after = await pool.getPendingClaims(await signer.getAddress());
           setPendingCount(after);
+          try { setGlobalPending(Number(ethers.BigNumber.from(after).toString())); } catch {}
+          // lightweight toast
+          try {
+            if (typeof window !== 'undefined') {
+              // Use alert for now as lightweight toast substitute
+              // In the future, replace with a proper toast component
+              window.setTimeout(() => alert('Reward saved. Claim anytime.'), 0);
+            }
+          } catch {}
         } else {
           setPendingCount(current);
+          try { setGlobalPending(Number(ethers.BigNumber.from(current).toString())); } catch {}
         }
       } catch {
         // non-fatal UI can proceed without count
@@ -106,6 +118,7 @@ const PostQuestions = () => {
       try {
         const after = await pool.getPendingClaims(await signer.getAddress());
         setPendingCount(after);
+        try { setGlobalPending(Number(ethers.BigNumber.from(after).toString())); } catch {}
       } catch {}
     } catch (error) {
       console.error('Error claiming reward:', error);
