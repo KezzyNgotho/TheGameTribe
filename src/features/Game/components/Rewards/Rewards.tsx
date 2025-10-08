@@ -56,11 +56,13 @@ const Rewards = () => {
         setNetworkOk((net?.chainId ?? 0) === 42101);
       } catch {}
 
-      // Try cache first
+      // Load existing cache (durable across restarts)
+      let cached: RewardEvent[] = [];
+      const cacheKey = CACHE_KEY((await signer.getAddress()).toLowerCase());
       try {
-        const cacheRaw = localStorage.getItem(CACHE_KEY((await signer.getAddress()).toLowerCase()));
+        const cacheRaw = localStorage.getItem(cacheKey);
         if (cacheRaw) {
-          const cached = JSON.parse(cacheRaw) as RewardEvent[];
+          cached = JSON.parse(cacheRaw) as RewardEvent[];
           setHistory(cached);
         }
       } catch {}
@@ -141,17 +143,22 @@ const Rewards = () => {
           try {
             const uri: string = await nft.tokenURI(ethers.BigNumber.from(e.tokenId));
             const image = await fetchImage(uri);
-            return { ...e, image };
+            return { ...e, image: image || '/images/large-og.jpg' };
           } catch {
-            return e;
+            return { ...e, image: '/images/large-og.jpg' };
           }
         }
         return e;
       }));
+      // Merge new with cached (keyed by txHash) to avoid losing older items
+      const byTx = new Map<string, RewardEvent>();
+      for (const ev of cached) byTx.set(ev.txHash, ev);
+      for (const ev of resolved) byTx.set(ev.txHash, ev);
+      const merged = Array.from(byTx.values()).sort((a, b) => (b.blockNumber - a.blockNumber));
 
-      setHistory(resolved);
+      setHistory(merged);
       setLastUpdated(Date.now());
-      try { localStorage.setItem(CACHE_KEY(filterUser), JSON.stringify(resolved)); } catch {}
+      try { localStorage.setItem(cacheKey, JSON.stringify(merged)); } catch {}
     } catch {}
     setLoadingHistory(false);
   }, [signer]);
