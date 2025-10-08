@@ -82,7 +82,15 @@ const TransactionHistory = () => {
           };
         }));
 
-        setTransactions(formattedTxs);
+        // Deduplicate transactions by hash and sort by timestamp
+        const uniqueTxs = formattedTxs.reduce((acc, tx) => {
+          if (!acc.find(t => t.hash === tx.hash)) {
+            acc.push(tx);
+          }
+          return acc;
+        }, [] as Transaction[]).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+        setTransactions(uniqueTxs);
         setError(null);
       } catch (err) {
         console.error("Transaction fetch error:", err);
@@ -119,8 +127,8 @@ const TransactionHistory = () => {
     <div className="px-4 py-6">
       {transactions.length > 0 ? (
         <div className="space-y-4">
-          {transactions.map((tx) => (
-            <div key={tx.hash} className="bg-dark rounded-xl p-4 border border-primary-500/20">
+          {transactions.map((tx, index) => (
+            <div key={`${tx.hash}-${index}`} className="bg-dark rounded-xl p-4 border border-primary-500/20">
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-primary-500 font-medium">
