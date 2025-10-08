@@ -23,6 +23,7 @@ contract BettingPool is ERC721Holder {
     event BetPlaced(address indexed user, uint256 amount, uint256 poolId);
     event BetWon(address indexed user, uint256 poolId, uint256 nftId);
     event RewardClaimed(address indexed user, uint256 nftId);
+    event PendingRewardQueued(address indexed user, uint256 pendingCount);
 
     IERC20 public flowToken;
     IERC721 public nftContract;
@@ -48,6 +49,7 @@ contract BettingPool is ERC721Holder {
     mapping(uint256 => uint256) public nftPrices;
     mapping(address => uint256) public userBalance;
     mapping(address => uint256) public userInvested;
+    mapping(address => uint256) public pendingClaims; // persists rewards eligibility across app exits
 
     uint256 public totalNFTs;
     uint256 public totalNFTPrice;
@@ -170,6 +172,9 @@ contract BettingPool is ERC721Holder {
     // Mint and immediately transfer to caller (basic guard: must be a registered user)
     function claimRewardAndMint(string calldata name) external returns (uint256 tokenId) {
         require(users[msg.sender].uuid != 0, "User not registered");
+        require(pendingClaims[msg.sender] > 0, "No pending reward to claim");
+        // decrement first to prevent reentrancy-based double claims; no external calls before decrement
+        pendingClaims[msg.sender] -= 1;
         aiNft.mint(address(this), name);
         tokenId = aiNft.nextTokenId() - 1;
         nftContract.safeTransferFrom(address(this), msg.sender, tokenId);
@@ -182,6 +187,17 @@ contract BettingPool is ERC721Holder {
         aiNft.mint(address(this), name);
         // nextTokenId increments after mint; last minted is nextTokenId-1
         tokenId = aiNft.nextTokenId() - 1;
+    }
+
+    // Queue a reward for the caller; to be used after a win so it persists across app exits
+    function queueReward() external {
+        require(users[msg.sender].uuid != 0, "User not registered");
+        pendingClaims[msg.sender] += 1;
+        emit PendingRewardQueued(msg.sender, pendingClaims[msg.sender]);
+    }
+
+    function getPendingClaims(address userAddress) external view returns (uint256) {
+        return pendingClaims[userAddress];
     }
 
     function getUserDetails(address userAddress) external view returns (uint256 owedValue, uint256 uuid) {

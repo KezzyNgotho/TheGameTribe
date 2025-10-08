@@ -10,9 +10,9 @@ export interface ChainConfig {
 
 export const CHAIN_CONFIGS: { [key: number]: ChainConfig } = {
   42101: {
-    mainContract: '0x66aDA2b13F8813FDd38c0A2e23F9a8e4BfCE5510',
-    tokenContract: '0xF86923B8d9Ebd71493648Cc65CBccb3312138017',
-    nftContract: '0x1652FC1a8dAA76B5cb70D05bC96BD9bdDc6D50b0',
+    mainContract: '0x39f933D41A7249d03df58b5FEc9470fB7e1Fbaf3',
+    tokenContract: '0xb47Ea6Ec7fc6C56E74253797aC069f14632d7B4e',
+    nftContract: '0x84E18baEd80a10d90e948cbe5aA3B5611108745A',
     chainId: 42101,
     chainName: 'Push Donut Testnet',
   },
