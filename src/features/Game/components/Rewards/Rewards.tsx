@@ -27,6 +27,8 @@ const Rewards = () => {
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [networkOk, setNetworkOk] = useState(true);
   const [filter, setFilter] = useState<'All' | 'Claimed' | 'Queued'>('All');
+  const [loadedTxs, setLoadedTxs] = useState<Set<string>>(new Set());
+  const [lastImgLoaded, setLastImgLoaded] = useState(false);
 
   const userAddress = useMemo(() => undefined, []);
 
@@ -333,7 +335,12 @@ const Rewards = () => {
       {lastClaimed && (
         <div className='flex items-center gap-3 rounded-xl border border-gray-200 p-3 shadow-sm'>
           {lastClaimed.image && (
-            <img src={lastClaimed.image} alt='Last claimed NFT' className='h-12 w-12 shrink-0 rounded-lg object-cover' />
+            <img
+              src={lastClaimed.image}
+              alt='Last claimed NFT'
+              className={`h-12 w-12 shrink-0 rounded-lg object-cover ${lastImgLoaded ? '' : 'animate-pulse bg-gray-200'}`}
+              onLoad={() => setLastImgLoaded(true)}
+            />
           )}
           <div className='min-w-0'>
             <div className='truncate text-sm font-medium'>Last claimed {lastClaimed.tokenId ? `#${lastClaimed.tokenId}` : ''}</div>
@@ -391,7 +398,12 @@ const Rewards = () => {
                     <li key={`${day}-${idx}`} className='flex items-center justify-between rounded-lg border border-gray-200 p-3'>
                       <div className='flex min-w-0 items-center gap-3'>
                         {ev.type === 'Claimed' && ev.image && (
-                          <img src={ev.image} alt='NFT' className='h-10 w-10 shrink-0 rounded-md object-cover' />
+                          <img
+                            src={ev.image}
+                            alt='NFT'
+                            className={`h-10 w-10 shrink-0 rounded-md object-cover ${loadedTxs.has(ev.txHash) ? '' : 'animate-pulse bg-gray-200'}`}
+                            onLoad={() => setLoadedTxs(prev => new Set(prev).add(ev.txHash))}
+                          />
                         )}
                         <span className={
                           ev.type === 'Claimed' ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700' : 'rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700'
