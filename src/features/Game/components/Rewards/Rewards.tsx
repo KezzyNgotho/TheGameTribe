@@ -25,6 +25,8 @@ const Rewards = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [history, setHistory] = useState<RewardEvent[]>([]);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [networkOk, setNetworkOk] = useState(true);
+  const [filter, setFilter] = useState<'All' | 'Claimed' | 'Queued'>('All');
 
   const userAddress = useMemo(() => undefined, []);
 
@@ -45,6 +47,12 @@ const Rewards = () => {
     try {
       const provider = signer.provider as ethers.providers.Provider;
       const { mainContract, nftContract } = getChainConfig(42101)!;
+
+      // Verify network
+      try {
+        const net = await provider.getNetwork();
+        setNetworkOk((net?.chainId ?? 0) === 42101);
+      } catch {}
 
       // Try cache first
       try {
@@ -106,14 +114,31 @@ const Rewards = () => {
         .map(e => ({ ...e, timestamp: blockMap.get(e.blockNumber) }))
         .sort((a, b) => (b.blockNumber - a.blockNumber));
 
-      // Try to resolve tokenURI for claimed items
+      // Resolve tokenURI and attempt to fetch image (supports json metadata)
       const nftAbi = ['function tokenURI(uint256 tokenId) view returns (string)'];
       const nft = new ethers.Contract(nftContract, nftAbi, signer);
+      const normalizeIpfs = (url: string) => url.startsWith('ipfs://') ? url.replace('ipfs://', 'https://ipfs.io/ipfs/') : url;
+      const fetchImage = async (uri: string): Promise<string | undefined> => {
+        try {
+          const http = normalizeIpfs(uri);
+          const res = await fetch(http);
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('application/json')) {
+            const json = await res.json();
+            const img = typeof json?.image === 'string' ? normalizeIpfs(json.image) : undefined;
+            return img ?? http;
+          }
+          return http;
+        } catch {
+          return undefined;
+        }
+      };
+
       const resolved = await Promise.all(enriched.map(async (e) => {
         if (e.type === 'Claimed' && e.tokenId) {
           try {
             const uri: string = await nft.tokenURI(ethers.BigNumber.from(e.tokenId));
-            const image = uri.startsWith('ipfs://') ? uri.replace('ipfs://', 'https://ipfs.io/ipfs/') : uri;
+            const image = await fetchImage(uri);
             return { ...e, image };
           } catch {
             return e;
@@ -134,6 +159,11 @@ const Rewards = () => {
       await loadPending();
       await loadHistory();
     })();
+    const id = window.setInterval(() => {
+      loadPending();
+      loadHistory();
+    }, 30000);
+    return () => window.clearInterval(id);
   }, [loadPending, loadHistory]);
 
   const claimOne = async () => {
@@ -269,7 +299,8 @@ const Rewards = () => {
   // Group history by calendar day for headers
   const grouped = useMemo(() => {
     const byDay = new Map<string, RewardEvent[]>();
-    for (const ev of history) {
+    const source = history.filter(ev => filter === 'All' ? true : ev.type === filter);
+    for (const ev of source) {
       const d = ev.timestamp ? new Date(ev.timestamp) : new Date();
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const arr = byDay.get(key) ?? [];
@@ -277,10 +308,15 @@ const Rewards = () => {
       byDay.set(key, arr);
     }
     return Array.from(byDay.entries()).sort((a,b) => (a[0] < b[0] ? 1 : -1));
-  }, [history]);
+  }, [history, filter]);
 
   return (
     <div className='mx-auto max-w-[95vw] space-y-6 mobile-demo:w-[450px]'>
+      {!networkOk && (
+        <div className='rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-xs text-yellow-800'>
+          Wrong network. Switch to Push Donut (42101) to claim and view history.
+        </div>
+      )}
       <div className='flex items-center justify-between'>
         <h2 className='text-lg font-bold text-primary-500'>Rewards</h2>
         <button
@@ -311,7 +347,19 @@ const Rewards = () => {
       </div>
 
       <div className='space-y-3'>
-        <div className='text-sm font-semibold text-gray-700'>History</div>
+        <div className='flex items-center justify-between'>
+          <div className='text-sm font-semibold text-gray-700'>History</div>
+          <div className='flex items-center gap-2'>
+            {(['All','Claimed','Queued'] as const).map(k => (
+              <button
+                key={k}
+                className={`rounded-full px-3 py-1 text-xs ${filter===k ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'}`}
+                onClick={() => setFilter(k)}
+                aria-label={`Filter ${k}`}
+              >{k}</button>
+            ))}
+          </div>
+        </div>
         {loadingHistory ? (
           <div className='text-sm text-gray-500'>Loading history…</div>
         ) : history.length === 0 ? (
