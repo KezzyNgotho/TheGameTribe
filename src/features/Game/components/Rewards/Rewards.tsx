@@ -12,6 +12,7 @@ type RewardEvent = {
   txHash: string;
   blockNumber: number;
   timestamp?: number;
+  image?: string;
 };
 
 const EXPLORER = 'https://donut.push.network';
@@ -43,7 +44,7 @@ const Rewards = () => {
     setLoadingHistory(true);
     try {
       const provider = signer.provider as ethers.providers.Provider;
-      const { mainContract } = getChainConfig(42101)!;
+      const { mainContract, nftContract } = getChainConfig(42101)!;
 
       // Try cache first
       try {
@@ -105,9 +106,25 @@ const Rewards = () => {
         .map(e => ({ ...e, timestamp: blockMap.get(e.blockNumber) }))
         .sort((a, b) => (b.blockNumber - a.blockNumber));
 
-      setHistory(enriched);
+      // Try to resolve tokenURI for claimed items
+      const nftAbi = ['function tokenURI(uint256 tokenId) view returns (string)'];
+      const nft = new ethers.Contract(nftContract, nftAbi, signer);
+      const resolved = await Promise.all(enriched.map(async (e) => {
+        if (e.type === 'Claimed' && e.tokenId) {
+          try {
+            const uri: string = await nft.tokenURI(ethers.BigNumber.from(e.tokenId));
+            const image = uri.startsWith('ipfs://') ? uri.replace('ipfs://', 'https://ipfs.io/ipfs/') : uri;
+            return { ...e, image };
+          } catch {
+            return e;
+          }
+        }
+        return e;
+      }));
+
+      setHistory(resolved);
       setLastUpdated(Date.now());
-      try { localStorage.setItem(CACHE_KEY(filterUser), JSON.stringify(enriched)); } catch {}
+      try { localStorage.setItem(CACHE_KEY(filterUser), JSON.stringify(resolved)); } catch {}
     } catch {}
     setLoadingHistory(false);
   }, [signer]);
@@ -123,7 +140,7 @@ const Rewards = () => {
     if (!signer) return;
     setLoading(true);
     try {
-      const { mainContract } = getChainConfig(42101)!;
+      const { mainContract, nftContract } = getChainConfig(42101)!;
       const abi = [
         'function getPendingClaims(address) view returns (uint256)',
         'function claimRewardAndMint(string name) external returns (uint256)'
@@ -133,17 +150,44 @@ const Rewards = () => {
       if (ethers.BigNumber.from(pending).eq(0)) throw new Error('No pending reward to claim');
       const tx = await pool.claimRewardAndMint('GameTribe-Reward', { gasLimit: 500000 });
       const rc = await tx.wait();
-      // Optimistically add claimed entry; tokenId is not directly known here without parsing logs
-      setHistory(prev => [
-        {
-          type: 'Claimed',
-          tokenId: undefined,
-          txHash: tx.hash,
-          blockNumber: rc?.blockNumber ?? 0,
-          timestamp: Date.now()
-        },
-        ...prev,
-      ]);
+      try {
+        // Parse logs to extract tokenId
+        const iface = new ethers.utils.Interface([
+          'event RewardClaimed(address indexed user, uint256 nftId)'
+        ]);
+        const mine = (await signer.getAddress()).toLowerCase();
+        let tokenIdParsed: string | undefined;
+        for (const lg of rc.logs || []) {
+          try {
+            const parsed = iface.parseLog(lg);
+            const user = (parsed.args.user as string).toLowerCase();
+            if (user === mine) {
+              tokenIdParsed = (parsed.args.nftId as ethers.BigNumber).toString();
+              break;
+            }
+          } catch {}
+        }
+        let image: string | undefined;
+        if (tokenIdParsed) {
+          try {
+            const nftAbi = ['function tokenURI(uint256 tokenId) view returns (string)'];
+            const nft = new ethers.Contract(nftContract, nftAbi, signer);
+            const uri: string = await nft.tokenURI(ethers.BigNumber.from(tokenIdParsed));
+            image = uri.startsWith('ipfs://') ? uri.replace('ipfs://', 'https://ipfs.io/ipfs/') : uri;
+          } catch {}
+        }
+        setHistory(prev => [
+          {
+            type: 'Claimed',
+            tokenId: tokenIdParsed,
+            txHash: tx.hash,
+            blockNumber: rc?.blockNumber ?? 0,
+            timestamp: Date.now(),
+            image,
+          },
+          ...prev,
+        ]);
+      } catch {}
       await loadPending();
       await loadHistory();
       alert('Reward claimed successfully!');
@@ -158,7 +202,7 @@ const Rewards = () => {
     if (!signer) return;
     setLoading(true);
     try {
-      const { mainContract } = getChainConfig(42101)!;
+      const { mainContract, nftContract } = getChainConfig(42101)!;
       const abi = [
         'function getPendingClaims(address) view returns (uint256)',
         'function claimRewardAndMint(string name) external returns (uint256)'
@@ -170,16 +214,43 @@ const Rewards = () => {
       while (remaining > 0) {
         const tx = await pool.claimRewardAndMint('GameTribe-Reward', { gasLimit: 500000 });
         const rc = await tx.wait();
-        setHistory(prev => [
-          {
-            type: 'Claimed',
-            tokenId: undefined,
-            txHash: tx.hash,
-            blockNumber: rc?.blockNumber ?? 0,
-            timestamp: Date.now()
-          },
-          ...prev,
-        ]);
+        try {
+          const iface = new ethers.utils.Interface([
+            'event RewardClaimed(address indexed user, uint256 nftId)'
+          ]);
+          const mine = (await signer.getAddress()).toLowerCase();
+          let tokenIdParsed: string | undefined;
+          for (const lg of rc.logs || []) {
+            try {
+              const parsed = iface.parseLog(lg);
+              const user = (parsed.args.user as string).toLowerCase();
+              if (user === mine) {
+                tokenIdParsed = (parsed.args.nftId as ethers.BigNumber).toString();
+                break;
+              }
+            } catch {}
+          }
+          let image: string | undefined;
+          if (tokenIdParsed) {
+            try {
+              const nftAbi = ['function tokenURI(uint256 tokenId) view returns (string)'];
+              const nft = new ethers.Contract(nftContract, nftAbi, signer);
+              const uri: string = await nft.tokenURI(ethers.BigNumber.from(tokenIdParsed));
+              image = uri.startsWith('ipfs://') ? uri.replace('ipfs://', 'https://ipfs.io/ipfs/') : uri;
+            } catch {}
+          }
+          setHistory(prev => [
+            {
+              type: 'Claimed',
+              tokenId: tokenIdParsed,
+              txHash: tx.hash,
+              blockNumber: rc?.blockNumber ?? 0,
+              timestamp: Date.now(),
+              image,
+            },
+            ...prev,
+          ]);
+        } catch {}
         remaining -= 1;
       }
       await loadPending();
@@ -256,6 +327,9 @@ const Rewards = () => {
                   {items.map((ev, idx) => (
                     <li key={`${day}-${idx}`} className='flex items-center justify-between rounded-lg border border-gray-200 p-3'>
                       <div className='flex min-w-0 items-center gap-3'>
+                        {ev.type === 'Claimed' && ev.image && (
+                          <img src={ev.image} alt='NFT' className='h-10 w-10 shrink-0 rounded-md object-cover' />
+                        )}
                         <span className={
                           ev.type === 'Claimed' ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700' : 'rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700'
                         }>
