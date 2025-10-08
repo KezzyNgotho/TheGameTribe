@@ -56,18 +56,27 @@ const Rewards = () => {
         setNetworkOk((net?.chainId ?? 0) === 42101);
       } catch {}
 
-      // Load existing cache (durable across restarts)
-      let cached: RewardEvent[] = [];
-      const cacheKey = CACHE_KEY((await signer.getAddress()).toLowerCase());
+      const userAddress = (await signer.getAddress()).toLowerCase();
+      const cacheKey = CACHE_KEY(userAddress);
+
+      // Load existing cache first (this persists across app restarts)
+      let persistentHistory: RewardEvent[] = [];
       try {
         const cacheRaw = localStorage.getItem(cacheKey);
         if (cacheRaw) {
-          cached = JSON.parse(cacheRaw) as RewardEvent[];
-          setHistory(cached);
+          persistentHistory = JSON.parse(cacheRaw) as RewardEvent[];
+          // Set cached history immediately so user sees it
+          setHistory(persistentHistory);
         }
-      } catch {}
+      } catch (error) {
+        console.warn('Failed to load cached history:', error);
+      }
 
-      const filterUser = (await signer.getAddress()).toLowerCase();
+      // Only fetch new events if we're on the correct network
+      if ((await provider.getNetwork()).chainId !== 42101) {
+        setLoadingHistory(false);
+        return;
+      }
 
       // Minimal iface for events
       const iface = new ethers.utils.Interface([
@@ -75,9 +84,9 @@ const Rewards = () => {
         'event PendingRewardQueued(address indexed user, uint256 pendingCount)'
       ]);
 
-      // Define a recent window if full history is heavy
+      // Get recent events (last 50k blocks to avoid timeout)
       const latest = await provider.getBlockNumber();
-      const fromBlock = Math.max(0, latest - 120000); // ~recent window
+      const fromBlock = Math.max(0, latest - 50000);
 
       const claimedLogs = await provider.getLogs({
         address: mainContract,
@@ -92,33 +101,36 @@ const Rewards = () => {
         topics: [iface.getEventTopic('PendingRewardQueued')]
       });
 
-      const events: RewardEvent[] = [];
+      const newEvents: RewardEvent[] = [];
       for (const log of claimedLogs) {
         const parsed = iface.parseLog(log);
         const user = (parsed.args.user as string).toLowerCase();
-        if (user !== filterUser) continue;
+        if (user !== userAddress) continue;
         const tokenId = (parsed.args.nftId as ethers.BigNumber).toString();
-        events.push({ type: 'Claimed', tokenId, txHash: log.transactionHash, blockNumber: log.blockNumber });
+        newEvents.push({ type: 'Claimed', tokenId, txHash: log.transactionHash, blockNumber: log.blockNumber });
       }
       for (const log of queuedLogs) {
         const parsed = iface.parseLog(log);
         const user = (parsed.args.user as string).toLowerCase();
-        if (user !== filterUser) continue;
-        events.push({ type: 'Queued', txHash: log.transactionHash, blockNumber: log.blockNumber });
+        if (user !== userAddress) continue;
+        newEvents.push({ type: 'Queued', txHash: log.transactionHash, blockNumber: log.blockNumber });
       }
 
-      // Enrich with timestamps
-      const blocksToFetch = Array.from(new Set(events.map(e => e.blockNumber)));
+      // Enrich new events with timestamps
+      const blocksToFetch = Array.from(new Set(newEvents.map(e => e.blockNumber)));
       const blockMap = new Map<number, number>();
       await Promise.all(blocksToFetch.map(async (bn) => {
-        const b = await provider.getBlock(bn);
-        blockMap.set(bn, (b?.timestamp ?? 0) * 1000);
+        try {
+          const b = await provider.getBlock(bn);
+          blockMap.set(bn, (b?.timestamp ?? 0) * 1000);
+        } catch {}
       }));
-      const enriched = events
+      
+      const enrichedNewEvents = newEvents
         .map(e => ({ ...e, timestamp: blockMap.get(e.blockNumber) }))
         .sort((a, b) => (b.blockNumber - a.blockNumber));
 
-      // Resolve tokenURI and attempt to fetch image (supports json metadata)
+      // Resolve tokenURI and fetch images for new claimed events
       const nftAbi = ['function tokenURI(uint256 tokenId) view returns (string)'];
       const nft = new ethers.Contract(nftContract, nftAbi, signer);
       const normalizeIpfs = (url: string) => url.startsWith('ipfs://') ? url.replace('ipfs://', 'https://ipfs.io/ipfs/') : url;
@@ -138,7 +150,7 @@ const Rewards = () => {
         }
       };
 
-      const resolved = await Promise.all(enriched.map(async (e) => {
+      const resolvedNewEvents = await Promise.all(enrichedNewEvents.map(async (e) => {
         if (e.type === 'Claimed' && e.tokenId) {
           try {
             const uri: string = await nft.tokenURI(ethers.BigNumber.from(e.tokenId));
@@ -150,16 +162,26 @@ const Rewards = () => {
         }
         return e;
       }));
-      // Merge new with cached (keyed by txHash) to avoid losing older items
-      const byTx = new Map<string, RewardEvent>();
-      for (const ev of cached) byTx.set(ev.txHash, ev);
-      for (const ev of resolved) byTx.set(ev.txHash, ev);
-      const merged = Array.from(byTx.values()).sort((a, b) => (b.blockNumber - a.blockNumber));
 
-      setHistory(merged);
+      // Merge persistent history with new events (avoid duplicates by txHash)
+      const existingTxHashes = new Set(persistentHistory.map(e => e.txHash));
+      const trulyNewEvents = resolvedNewEvents.filter(e => !existingTxHashes.has(e.txHash));
+      
+      const mergedHistory = [...trulyNewEvents, ...persistentHistory]
+        .sort((a, b) => (b.blockNumber - a.blockNumber));
+
+      setHistory(mergedHistory);
       setLastUpdated(Date.now());
-      try { localStorage.setItem(cacheKey, JSON.stringify(merged)); } catch {}
-    } catch {}
+      
+      // Update persistent cache
+      try { 
+        localStorage.setItem(cacheKey, JSON.stringify(mergedHistory)); 
+      } catch (error) {
+        console.warn('Failed to save history to cache:', error);
+      }
+    } catch (error) {
+      console.warn('Failed to load history:', error);
+    }
     setLoadingHistory(false);
   }, [signer]);
 
@@ -215,17 +237,30 @@ const Rewards = () => {
             image = uri.startsWith('ipfs://') ? uri.replace('ipfs://', 'https://ipfs.io/ipfs/') : uri;
           } catch {}
         }
-        setHistory(prev => [
-          {
-            type: 'Claimed',
-            tokenId: tokenIdParsed,
-            txHash: tx.hash,
-            blockNumber: rc?.blockNumber ?? 0,
-            timestamp: Date.now(),
-            image,
-          },
-          ...prev,
-        ]);
+        // Add to persistent history immediately
+        const userAddress = (await signer.getAddress()).toLowerCase();
+        const cacheKey = CACHE_KEY(userAddress);
+        const newEvent: RewardEvent = {
+          type: 'Claimed',
+          tokenId: tokenIdParsed,
+          txHash: tx.hash,
+          blockNumber: rc?.blockNumber ?? 0,
+          timestamp: Date.now(),
+          image,
+        };
+        
+        // Update local state immediately
+        setHistory(prev => [newEvent, ...prev]);
+        
+        // Update persistent cache
+        try {
+          const existingCache = localStorage.getItem(cacheKey);
+          const existingHistory = existingCache ? JSON.parse(existingCache) as RewardEvent[] : [];
+          const updatedHistory = [newEvent, ...existingHistory].sort((a, b) => (b.blockNumber - a.blockNumber));
+          localStorage.setItem(cacheKey, JSON.stringify(updatedHistory));
+        } catch (error) {
+          console.warn('Failed to update persistent cache:', error);
+        }
       } catch {}
       await loadPending();
       await loadHistory();
@@ -278,17 +313,30 @@ const Rewards = () => {
               image = uri.startsWith('ipfs://') ? uri.replace('ipfs://', 'https://ipfs.io/ipfs/') : uri;
             } catch {}
           }
-          setHistory(prev => [
-            {
-              type: 'Claimed',
-              tokenId: tokenIdParsed,
-              txHash: tx.hash,
-              blockNumber: rc?.blockNumber ?? 0,
-              timestamp: Date.now(),
-              image,
-            },
-            ...prev,
-          ]);
+          // Add to persistent history immediately
+          const userAddress = (await signer.getAddress()).toLowerCase();
+          const cacheKey = CACHE_KEY(userAddress);
+          const newEvent: RewardEvent = {
+            type: 'Claimed',
+            tokenId: tokenIdParsed,
+            txHash: tx.hash,
+            blockNumber: rc?.blockNumber ?? 0,
+            timestamp: Date.now(),
+            image,
+          };
+          
+          // Update local state immediately
+          setHistory(prev => [newEvent, ...prev]);
+          
+          // Update persistent cache
+          try {
+            const existingCache = localStorage.getItem(cacheKey);
+            const existingHistory = existingCache ? JSON.parse(existingCache) as RewardEvent[] : [];
+            const updatedHistory = [newEvent, ...existingHistory].sort((a, b) => (b.blockNumber - a.blockNumber));
+            localStorage.setItem(cacheKey, JSON.stringify(updatedHistory));
+          } catch (error) {
+            console.warn('Failed to update persistent cache:', error);
+          }
         } catch {}
         remaining -= 1;
       }
