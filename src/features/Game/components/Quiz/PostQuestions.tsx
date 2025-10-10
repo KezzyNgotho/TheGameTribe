@@ -23,7 +23,7 @@ const PostQuestions = () => {
   const [loading, setLoading] = useState(false);
   const [pendingCount, setPendingCount] = useState<ethers.BigNumber | null>(null);
   const [initialized, setInitialized] = useState(false);
-  const { setPendingCount: setGlobalPending } = useRewardsContext();
+  const { setPendingCount: setGlobalPending, addNotification } = useRewardsContext();
 
   useEffect(() => {
     // Generate random points between 0 and 4999
@@ -64,13 +64,15 @@ const PostQuestions = () => {
           const after = await pool.getPendingClaims(await signer.getAddress());
           setPendingCount(after);
           try { setGlobalPending(Number(ethers.BigNumber.from(after).toString())); } catch {}
-          // lightweight toast
+          // Add notification
           try {
-            if (typeof window !== 'undefined') {
-              // Use alert for now as lightweight toast substitute
-              // In the future, replace with a proper toast component
-              window.setTimeout(() => alert('Reward saved. Claim anytime.'), 0);
-            }
+            addNotification({
+              title: 'Reward Earned!',
+              message: `You earned ${quizPoints} points from the quiz!`,
+              icon: '🎁',
+              type: 'reward',
+              cta: 'Claim in Rewards tab',
+            });
           } catch {}
         } else {
           setPendingCount(current);

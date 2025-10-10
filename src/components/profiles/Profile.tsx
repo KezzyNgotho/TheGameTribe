@@ -6,12 +6,14 @@ import { createPortal } from 'react-dom';
 import { useAccount } from 'wagmi';
 
 import NextImage from '@/components/NextImage';
+import GameChat from '@/components/chat/GameChat';
 
 const Profile = () => {
   const { address } = useAccount(); // Get the wallet address
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadedVideos, setUploadedVideos] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'chat'>('profile');
 
   useEffect(() => {
     // Load previously uploaded videos for this wallet from localStorage
@@ -82,6 +84,60 @@ const Profile = () => {
     return `${address.slice(0, 4)}....${address.slice(-4)}`;
   };
 
+  const renderTabContent = () => {
+    if (activeTab === 'chat') {
+      return <GameChat />;
+    }
+
+    return (
+      <>
+        <div className='space-y-6 px-6 py-8 w-full max-w-lg'>
+          <div className='relative rounded bg-primary-500 py-5 pl-8 text-xl font-semibold uppercase tracking-wider text-white'>
+            Upload Files
+          </div>
+          <div className='flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 px-6 py-8 bg-gray-800'>
+            <input
+              type='file'
+              onChange={handleFileUpload}
+              aria-label='Select video file to upload'
+              className='mb-4 cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-none file:bg-gray-700 file:px-4 file:py-2 file:text-white hover:file:bg-gray-600'
+            />
+            <button
+              onClick={uploadToPinata}
+              className={`mt-4 w-full rounded-lg bg-blue-600 px-8 py-3 text-sm font-medium text-white transition-colors duration-300 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                loading ? 'cursor-not-allowed opacity-70' : ''
+              }`}
+              disabled={loading}
+            >
+              {loading ? 'Uploading...' : 'Mint NFT'}
+            </button>
+          </div>
+        </div>
+
+        {/* Display Uploaded Videos */}
+        {uploadedVideos.length > 0 && (
+          <div className='mx-auto my-10 overflow-hidden rounded-2xl sm:w-[26rem] sm:max-w-lg'>
+            <div className='relative bg-primary-500 py-5 pl-8 text-center text-xl font-semibold uppercase tracking-wider text-white'>
+              Uploaded Videos
+            </div>
+            <div className='mt-4 flex flex-col items-center gap-6'>
+              {uploadedVideos.map((video, index) => (
+                <video
+                  key={index}
+                  controls
+                  autoPlay
+                  src={video}
+                  className='rounded-lg shadow-lg'
+                  style={{ width: '80%', maxWidth: '600px', height: 'auto' }}
+                ></video>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className='flex min-h-screen flex-col overflow-hidden text-white' style={{ backgroundColor: 'transparent' }}>
       {Capacitor.getPlatform() === 'ios' ? (
@@ -109,49 +165,35 @@ const Profile = () => {
           />
           <span className='block text-lg font-semibold'>{address ? formatAddress(address) : '.Dev'}</span>
           <ConnectButton showBalance={false} />
-          <div className='space-y-6 px-6 py-8 w-full max-w-lg'>
-            <div className='relative rounded bg-primary-500 py-5 pl-8 text-xl font-semibold uppercase tracking-wider text-white'>
-              Upload Files
-            </div>
-            <div className='flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 px-6 py-8 bg-gray-800'>
-              <input
-                type='file'
-                onChange={handleFileUpload}
-                aria-label='Select video file to upload'
-                className='mb-4 cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-none file:bg-gray-700 file:px-4 file:py-2 file:text-white hover:file:bg-gray-600'
-              />
-              <button
-                onClick={uploadToPinata}
-                className={`mt-4 w-full rounded-lg bg-blue-600 px-8 py-3 text-sm font-medium text-white transition-colors duration-300 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  loading ? 'cursor-not-allowed opacity-70' : ''
-                }`}
-                disabled={loading}
-              >
-                {loading ? 'Uploading...' : 'Mint NFT'}
-              </button>
-            </div>
+          
+          {/* Tab Navigation */}
+          <div className='flex w-full max-w-lg rounded-lg bg-gray-800 p-1'>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'profile'
+                  ? 'bg-primary-500 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Profile
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'chat'
+                  ? 'bg-primary-500 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Community Chat
+            </button>
           </div>
 
-          {/* Display Uploaded Videos */}
-          {uploadedVideos.length > 0 && (
-            <div className='mx-auto my-10 overflow-hidden rounded-2xl sm:w-[26rem] sm:max-w-lg'>
-              <div className='relative bg-primary-500 py-5 pl-8 text-center text-xl font-semibold uppercase tracking-wider text-white'>
-                Uploaded Videos
-              </div>
-              <div className='mt-4 flex flex-col items-center gap-6'>
-                {uploadedVideos.map((video, index) => (
-                  <video
-                    key={index}
-                    controls
-                    autoPlay
-                    src={video}
-                    className='rounded-lg shadow-lg'
-                    style={{ width: '80%', maxWidth: '600px', height: 'auto' }}
-                  ></video>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Tab Content */}
+          <div className='w-full max-w-lg'>
+            {renderTabContent()}
+          </div>
         </div>
       )}
       {/* Bottom menu is rendered at Game root; avoid duplicate here */}

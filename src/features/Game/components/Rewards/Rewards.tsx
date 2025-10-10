@@ -5,6 +5,7 @@ import Button from '@/components/buttons/Button';
 import { useEthersSigner } from '@/utils/signer';
 import { getChainConfig } from '@/config/contracts';
 import { useRewardsContext } from '@/features/Game/contexts/RewardsContext';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 type RewardEvent = {
   type: 'Queued' | 'Claimed';
@@ -20,7 +21,7 @@ const CACHE_KEY = (addr: string) => `gtb-reward-history-${addr}-42101`;
 
 const Rewards = () => {
   const signer = useEthersSigner();
-  const { pendingCount, setPendingCount } = useRewardsContext();
+  const { pendingCount, setPendingCount, notifications, addNotification } = useRewardsContext();
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [history, setHistory] = useState<RewardEvent[]>([]);
@@ -29,6 +30,7 @@ const Rewards = () => {
   const [filter, setFilter] = useState<'All' | 'Claimed' | 'Queued'>('All');
   const [loadedTxs, setLoadedTxs] = useState<Set<string>>(new Set());
   const [lastImgLoaded, setLastImgLoaded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'rewards' | 'notifications'>('rewards');
 
   const userAddress = useMemo(() => undefined, []);
 
@@ -369,6 +371,93 @@ const Rewards = () => {
 
   const lastClaimed = useMemo(() => history.find((e) => e.type === 'Claimed'), [history]);
 
+  const renderTabContent = () => {
+    if (activeTab === 'notifications') {
+      return <NotificationCenter />;
+    }
+
+    return (
+      <>
+        {lastClaimed && (
+          <div className='flex items-center gap-3 rounded-xl border border-gray-200 p-3 shadow-sm'>
+            {lastClaimed.image ? (
+              <img
+                src={lastClaimed.image}
+                alt='Last claimed NFT'
+                className={`h-12 w-12 shrink-0 rounded-lg object-cover ${lastImgLoaded ? '' : 'animate-pulse bg-gray-200'}`}
+                onLoad={() => setLastImgLoaded(true)}
+              />
+            ) : (
+              <div className='h-12 w-12 shrink-0 rounded-lg bg-gray-200'></div>
+            )}
+            <div className='min-w-0'>
+              <div className='truncate text-sm font-medium'>Last claimed {lastClaimed.tokenId ? `#${lastClaimed.tokenId}` : ''}</div>
+              <div className='text-xs text-gray-500'>{fmt(lastClaimed.timestamp)}</div>
+            </div>
+            <a className='ml-auto shrink-0 text-xs text-primary-500 underline' href={txLink(lastClaimed.txHash)} target='_blank' rel='noreferrer'>View</a>
+          </div>
+        )}
+
+        <div className='rounded-lg border border-gray-200 p-4'>
+          <div className='mb-4 flex items-center justify-between'>
+            <h3 className='text-sm font-medium'>History</h3>
+            <div className='flex gap-2'>
+              {(['All', 'Claimed', 'Queued'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`rounded px-2 py-1 text-xs ${
+                    filter === f ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className='space-y-3'>
+            {grouped.map(([day, events]: [string, RewardEvent[]]) => (
+              <div key={day}>
+                <div className='mb-2 text-xs text-gray-500'>{day}</div>
+                <div className='space-y-2'>
+                  {events.map((event: RewardEvent) => (
+                    <div key={event.txHash} className='flex items-center gap-3 rounded-lg bg-gray-50 p-3'>
+                      {event.image ? (
+                        <img
+                          src={event.image}
+                          alt='NFT'
+                          className='h-10 w-10 rounded object-cover'
+                        />
+                      ) : (
+                        <div className='h-10 w-10 rounded bg-gray-200'></div>
+                      )}
+                      <div className='flex-1 min-w-0'>
+                        <div className='text-sm font-medium'>
+                          {event.type} {event.tokenId ? `#${event.tokenId}` : ''}
+                        </div>
+                        <div className='text-xs text-gray-500'>
+                          Block {event.blockNumber}
+                        </div>
+                      </div>
+                      <a
+                        href={txLink(event.txHash)}
+                        target='_blank'
+                        rel='noreferrer'
+                        className='text-xs text-primary-500 underline'
+                      >
+                        View
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className='mx-auto max-w-[95vw] space-y-6 mobile-demo:w-[450px]'>
       {!networkOk && (
@@ -376,117 +465,72 @@ const Rewards = () => {
           Wrong network. Switch to Push Donut (42101) to claim and view history.
         </div>
       )}
-      <div className='flex items-center justify-between'>
-        <h2 className='text-lg font-bold text-primary-500'>Rewards</h2>
+      
+      {/* Tab Navigation */}
+      <div className='flex w-full rounded-lg bg-gray-800 p-1'>
         <button
-          className='text-sm text-primary-500 underline'
-          onClick={() => { loadPending(); loadHistory(); }}
-          aria-label='Refresh rewards'
+          onClick={() => setActiveTab('rewards')}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'rewards'
+              ? 'bg-primary-500 text-white'
+              : 'text-gray-400 hover:text-white'
+          }`}
         >
-          Refresh
+          Rewards
+        </button>
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'notifications'
+              ? 'bg-primary-500 text-white'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Notifications
+          {notifications.length > 0 && (
+            <span className='absolute -right-2 -top-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white'>
+              {notifications.length}
+            </span>
+          )}
         </button>
       </div>
 
-      {lastClaimed && (
-        <div className='flex items-center gap-3 rounded-xl border border-gray-200 p-3 shadow-sm'>
-          {lastClaimed.image ? (
-            <img
-              src={lastClaimed.image}
-              alt='Last claimed NFT'
-              className={`h-12 w-12 shrink-0 rounded-lg object-cover ${lastImgLoaded ? '' : 'animate-pulse bg-gray-200'}`}
-              onLoad={() => setLastImgLoaded(true)}
-            />
-          ) : (
-            <div className='h-12 w-12 shrink-0 rounded-lg bg-gray-200'></div>
-          )}
-          <div className='min-w-0'>
-            <div className='truncate text-sm font-medium'>Last claimed {lastClaimed.tokenId ? `#${lastClaimed.tokenId}` : ''}</div>
-            <div className='text-xs text-gray-500'>{fmt(lastClaimed.timestamp)}</div>
-          </div>
-          <a className='ml-auto shrink-0 text-xs text-primary-500 underline' href={txLink(lastClaimed.txHash)} target='_blank' rel='noreferrer'>View</a>
-        </div>
-      )}
-
-      <div className='rounded-lg border border-gray-200 p-4'>
-        <div className='mb-1 flex items-center justify-between'>
-          <div className='text-sm text-gray-600'>Pending rewards</div>
-          {lastUpdated && (
-            <div className='text-xs text-gray-400'>Updated {fmt(lastUpdated)}</div>
-          )}
-        </div>
-        <div className='mb-4 text-2xl font-semibold'>{pendingCount}</div>
-        <div className='flex gap-3'>
-          <Button onClick={claimOne} variant='outline' className='py-3' disabled={loading || pendingCount === 0}>
-            {loading ? 'Working...' : 'Claim One'}
-          </Button>
-          <Button onClick={claimAll} variant='outline' className='py-3' disabled={loading || pendingCount === 0}>
-            {loading ? 'Working...' : 'Claim All'}
-          </Button>
-        </div>
-      </div>
-
-      <div className='space-y-3'>
-        <div className='flex items-center justify-between'>
-          <div className='text-sm font-semibold text-gray-700'>History</div>
-          <div className='flex items-center gap-2'>
-            {(['All','Claimed','Queued'] as const).map(k => (
-              <button
-                key={k}
-                className={`rounded-full px-3 py-1 text-xs ${filter===k ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'}`}
-                onClick={() => setFilter(k)}
-                aria-label={`Filter ${k}`}
-              >{k}</button>
-            ))}
-          </div>
-        </div>
-        {loadingHistory ? (
-          <div className='text-sm text-gray-500'>Loading history…</div>
-        ) : history.length === 0 ? (
-          <div className='rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500'>
-            No history yet. Play a quiz to earn rewards.
-          </div>
-        ) : (
-          <div className='space-y-4'>
-            {grouped.map(([day, items]) => (
-              <div key={day} className='space-y-2'>
-                <div className='text-xs font-semibold uppercase text-gray-500'>{day}</div>
-                <ul className='space-y-2'>
-                  {items.map((ev, idx) => (
-                    <li key={`${day}-${idx}`} className='flex items-center justify-between rounded-lg border border-gray-200 p-3'>
-                      <div className='flex min-w-0 items-center gap-3'>
-                        {ev.type === 'Claimed' && (
-                          ev.image ? (
-                            <img
-                              src={ev.image}
-                              alt='NFT'
-                              className={`h-10 w-10 shrink-0 rounded-md object-cover ${loadedTxs.has(ev.txHash) ? '' : 'animate-pulse bg-gray-200'}`}
-                              onLoad={() => setLoadedTxs(prev => new Set(prev).add(ev.txHash))}
-                            />
-                          ) : (
-                            <div className='h-10 w-10 shrink-0 rounded-md bg-gray-200'></div>
-                          )
-                        )}
-                        <span className={
-                          ev.type === 'Claimed' ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700' : 'rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700'
-                        }>
-                          {ev.type}
-                        </span>
-                        <div className='min-w-0'>
-                          <div className='truncate text-sm'>
-                            {ev.type === 'Claimed' ? `Token #${ev.tokenId ?? '—'}` : 'Queued reward'}
-                          </div>
-                          <div className='text-xs text-gray-500'>{fmt(ev.timestamp)}</div>
-                        </div>
-                      </div>
-                      <a className='shrink-0 text-xs text-primary-500 underline' href={txLink(ev.txHash)} target='_blank' rel='noreferrer'>View</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+      <div className='flex items-center justify-between'>
+        <h2 className='text-lg font-bold text-primary-500'>
+          {activeTab === 'rewards' ? 'Rewards' : 'Notifications'}
+        </h2>
+        {activeTab === 'rewards' && (
+          <button
+            className='text-sm text-primary-500 underline'
+            onClick={() => { loadPending(); loadHistory(); }}
+            aria-label='Refresh rewards'
+          >
+            Refresh
+          </button>
         )}
       </div>
+
+      {renderTabContent()}
+
+      {activeTab === 'rewards' && (
+        <div className='rounded-lg border border-gray-200 p-4'>
+          <div className='mb-1 flex items-center justify-between'>
+            <div className='text-sm text-gray-600'>Pending rewards</div>
+            {lastUpdated && (
+              <div className='text-xs text-gray-400'>Updated {fmt(lastUpdated)}</div>
+            )}
+          </div>
+          <div className='mb-4 text-2xl font-semibold'>{pendingCount}</div>
+          <div className='flex gap-3'>
+            <Button onClick={claimOne} variant='outline' className='py-3' disabled={loading || pendingCount === 0}>
+              {loading ? 'Working...' : 'Claim One'}
+            </Button>
+            <Button onClick={claimAll} variant='outline' className='py-3' disabled={loading || pendingCount === 0}>
+              {loading ? 'Working...' : 'Claim All'}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
