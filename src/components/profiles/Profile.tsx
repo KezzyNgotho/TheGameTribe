@@ -88,7 +88,7 @@ const Profile = () => {
         <div style={{ paddingTop: 'calc(2px + env(safe-area-inset-top))' }}>
           <div className='absolute mt-6 flex flex-col items-center gap-3 mobile-demo:inset-center'>
             <NextImage
-              src='/images/icons8-car-100.png'
+              src='/images/icons8-user-48.png'
               alt='Image placeholder'
               className='relative h-32 w-32 rounded-full border-4 border-primary-500'
               imgClassName='object-cover rounded-full'
@@ -101,7 +101,7 @@ const Profile = () => {
       ) : (
         <div className='flex flex-grow flex-col items-center gap-3 overflow-y-auto px-4'>
           <NextImage
-            src='/images/icons8-car-100.png'
+            src='/images/icons8-user-48.png'
             alt='Image placeholder'
             className='relative h-32 w-32 rounded-full border-4 border-primary-500'
             imgClassName='object-cover rounded-full'
@@ -117,6 +117,7 @@ const Profile = () => {
               <input
                 type='file'
                 onChange={handleFileUpload}
+                aria-label='Select video file to upload'
                 className='mb-4 cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-none file:bg-gray-700 file:px-4 file:py-2 file:text-white hover:file:bg-gray-600'
               />
               <button

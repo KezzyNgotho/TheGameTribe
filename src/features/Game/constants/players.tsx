@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { user } from '@/features/Game/constants/user';
 
 // Utility function to generate random points
 const generateRandomPoints = () => Math.floor(Math.random() * 5000);
@@ -23,5 +24,9 @@ export const generateRandomPlayers = (numPlayers: number) => {
   return players;
 };
 
-// Generate 5 random players
-export const players = generateRandomPlayers(5);
+// Generate 5 random players and ensure first player uses your profile image
+export const players = (() => {
+  const list = generateRandomPlayers(5);
+  if (list.length) list[0].profileImage = user.profileImgSrc;
+  return list;
+})();
